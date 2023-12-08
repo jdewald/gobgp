@@ -520,6 +520,7 @@ func Test_FlowSpecExtended(t *testing.T) {
 	exts = append(exts, NewRedirectIPv4AddressSpecificExtended("10.0.0.1", 1000))
 	exts = append(exts, NewRedirectFourOctetAsSpecificExtended(10000000, 1000))
 	exts = append(exts, NewTrafficRemarkExtended(10))
+	exts = append(exts, NewRedirectToIPv4NextHopAction("10.42.0.1", false))
 	m1 := NewPathAttributeExtendedCommunities(exts)
 	buf1, err := m1.Serialize()
 	require.NoError(t, err)

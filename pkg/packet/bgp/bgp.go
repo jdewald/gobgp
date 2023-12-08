@@ -171,6 +171,7 @@ const (
 	EC_SUBTYPE_SOURCE_AS               ExtendedCommunityAttrSubType = 0x09 // EC_TYPE: 0x00, 0x02
 	EC_SUBTYPE_L2VPN_ID                ExtendedCommunityAttrSubType = 0x0A // EC_TYPE: 0x00, 0x01
 	EC_SUBTYPE_VRF_ROUTE_IMPORT        ExtendedCommunityAttrSubType = 0x0B // EC_TYPE: 0x01
+	EC_SUBTYPE_FLOWSPEC_REDIRECT_IP4   ExtendedCommunityAttrSubType = 0x0C // EC_TYPE: 0x01
 	EC_SUBTYPE_CISCO_VPN_DISTINGUISHER ExtendedCommunityAttrSubType = 0x10 // EC_TYPE: 0x00, 0x01, 0x02
 
 	EC_SUBTYPE_OSPF_ROUTE_TYPE ExtendedCommunityAttrSubType = 0x06 // EC_TYPE: 0x03
@@ -11710,6 +11711,11 @@ func ParseRouteTarget(rt string) (ExtendedCommunityInterface, error) {
 	return ParseExtendedCommunity(EC_SUBTYPE_ROUTE_TARGET, rt)
 }
 
+func ParseRedirectIP(rt string) (ExtendedCommunityInterface, error) {
+	// 0 indicates not doing redirectCopy
+	return ParseExtendedCommunity(EC_SUBTYPE_ROUTE_TARGET, rt+":0")
+}
+
 func SerializeExtendedCommunities(comms []ExtendedCommunityInterface) ([][]byte, error) {
 	bufs := make([][]byte, len(comms))
 	var err error
@@ -12458,6 +12464,26 @@ func NewRedirectIPv4AddressSpecificExtended(ipv4 string, localAdmin uint16) *Red
 	return &RedirectIPv4AddressSpecificExtended{*e}
 }
 
+type RedirectToIPv4NextHopAction struct {
+	IPv4AddressSpecificExtended
+}
+
+func (e *RedirectToIPv4NextHopAction) String() string {
+	return "redirect-nh: " + e.IPv4.String()
+}
+
+func NewRedirectToIPv4NextHopAction(ipv4 string, redirectCopy bool) *RedirectToIPv4NextHopAction {
+	admin := uint16(0)
+	if redirectCopy {
+		admin = 1
+	}
+	e := NewIPv4AddressSpecificExtended(EC_SUBTYPE_FLOWSPEC_REDIRECT_IP4, ipv4, admin, true)
+	if e == nil {
+		return nil
+	}
+	return &RedirectToIPv4NextHopAction{*e}
+}
+
 type RedirectIPv6AddressSpecificExtended struct {
 	IPv6AddressSpecificExtended
 }
@@ -12719,6 +12745,10 @@ func ParseExtended(data []byte) (ExtendedCommunityInterface, error) {
 	case EC_TYPE_NON_TRANSITIVE_IP4_SPECIFIC:
 		ipv4 := net.IP(data[2:6]).String()
 		localAdmin := binary.BigEndian.Uint16(data[6:8])
+		if subtype == EC_SUBTYPE_FLOWSPEC_REDIRECT_IP4 {
+			redirectCopy := localAdmin > 0
+			return NewRedirectToIPv4NextHopAction(ipv4, redirectCopy), nil
+		}
 		return NewIPv4AddressSpecificExtended(subtype, ipv4, localAdmin, transitive), nil
 	case EC_TYPE_TRANSITIVE_FOUR_OCTET_AS_SPECIFIC:
 		transitive = true

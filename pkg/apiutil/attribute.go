@@ -1934,6 +1934,12 @@ func NewExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeExtendedCommu
 				Asn:        v.AS,
 				LocalAdmin: uint32(v.LocalAdmin),
 			}
+		case *bgp.RedirectToIPv4NextHopAction:
+			community = &api.RedirectToIPv4NextHopAction{
+				Address:      v.IPv4.String(),
+				RedirectCopy: v.LocalAdmin > 0,
+			}
+
 		case *bgp.TrafficRemarkExtended:
 			community = &api.TrafficRemarkExtended{
 				Dscp: uint32(v.DSCP),
@@ -2010,6 +2016,8 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 			community = bgp.NewRedirectIPv4AddressSpecificExtended(v.Address, uint16(v.LocalAdmin))
 		case *api.RedirectFourOctetAsSpecificExtended:
 			community = bgp.NewRedirectFourOctetAsSpecificExtended(v.Asn, uint16(v.LocalAdmin))
+		case *api.RedirectToIPv4NextHopAction:
+			community = bgp.NewRedirectToIPv4NextHopAction(v.Address, v.RedirectCopy)
 		case *api.TrafficRemarkExtended:
 			community = bgp.NewTrafficRemarkExtended(uint8(v.Dscp))
 		case *api.MUPExtended:

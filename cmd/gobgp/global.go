@@ -57,6 +57,7 @@ const (
 	ctColor
 	ctLb
 	ctMup
+	ctRedirectNH
 )
 
 var extCommNameMap = map[extCommType]string{
@@ -64,6 +65,7 @@ var extCommNameMap = map[extCommType]string{
 	ctDiscard:        "discard",
 	ctRate:           "rate-limit",
 	ctRedirect:       "redirect",
+	ctRedirectNH:     "redirect-to-nexthop-ietf",
 	ctMark:           "mark",
 	ctAction:         "action",
 	ctRT:             "rt",
@@ -97,6 +99,7 @@ var extCommValueMap = map[string]extCommType{
 	extCommNameMap[ctColor]:          ctColor,
 	extCommNameMap[ctLb]:             ctLb,
 	extCommNameMap[ctMup]:            ctMup,
+	extCommNameMap[ctRedirectNH]:     ctRedirectNH,
 }
 
 func rateLimitParser(args []string) ([]bgp.ExtendedCommunityInterface, error) {
@@ -125,22 +128,35 @@ func rateLimitParser(args []string) ([]bgp.ExtendedCommunityInterface, error) {
 }
 
 func redirectParser(args []string) ([]bgp.ExtendedCommunityInterface, error) {
-	if len(args) < 2 || args[0] != extCommNameMap[ctRedirect] {
+	if len(args) < 2 || (args[0] != extCommNameMap[ctRedirect] && args[0] != extCommNameMap[ctRedirectNH]) {
 		return nil, fmt.Errorf("invalid redirect")
 	}
-	rt, err := bgp.ParseRouteTarget(strings.Join(args[1:], " "))
-	if err != nil {
-		return nil, err
-	}
-	switch r := rt.(type) {
-	case *bgp.TwoOctetAsSpecificExtended:
-		return []bgp.ExtendedCommunityInterface{bgp.NewRedirectTwoOctetAsSpecificExtended(r.AS, r.LocalAdmin)}, nil
-	case *bgp.IPv4AddressSpecificExtended:
-		return []bgp.ExtendedCommunityInterface{bgp.NewRedirectIPv4AddressSpecificExtended(r.IPv4.String(), r.LocalAdmin)}, nil
-	case *bgp.FourOctetAsSpecificExtended:
-		return []bgp.ExtendedCommunityInterface{bgp.NewRedirectFourOctetAsSpecificExtended(r.AS, r.LocalAdmin)}, nil
-	case *bgp.IPv6AddressSpecificExtended:
-		return []bgp.ExtendedCommunityInterface{bgp.NewRedirectIPv6AddressSpecificExtended(r.IPv6.String(), r.LocalAdmin)}, nil
+
+	if args[0] == extCommNameMap[ctRedirect] {
+		rt, err := bgp.ParseRouteTarget(strings.Join(args[1:], " "))
+		if err != nil {
+			return nil, err
+		}
+		switch r := rt.(type) {
+		case *bgp.TwoOctetAsSpecificExtended:
+			return []bgp.ExtendedCommunityInterface{bgp.NewRedirectTwoOctetAsSpecificExtended(r.AS, r.LocalAdmin)}, nil
+		case *bgp.IPv4AddressSpecificExtended:
+			return []bgp.ExtendedCommunityInterface{bgp.NewRedirectIPv4AddressSpecificExtended(r.IPv4.String(), r.LocalAdmin)}, nil
+		case *bgp.FourOctetAsSpecificExtended:
+			return []bgp.ExtendedCommunityInterface{bgp.NewRedirectFourOctetAsSpecificExtended(r.AS, r.LocalAdmin)}, nil
+		case *bgp.IPv6AddressSpecificExtended:
+			return []bgp.ExtendedCommunityInterface{bgp.NewRedirectIPv6AddressSpecificExtended(r.IPv6.String(), r.LocalAdmin)}, nil
+		}
+	} else {
+		rt, err := bgp.ParseRedirectIP(args[1])
+		if err != nil {
+			return nil, err
+		}
+
+		switch r := rt.(type) {
+		case *bgp.IPv4AddressSpecificExtended:
+			return []bgp.ExtendedCommunityInterface{bgp.NewRedirectToIPv4NextHopAction(r.IPv4.String(), r.LocalAdmin == 1)}, nil
+		}
 	}
 	return nil, fmt.Errorf("invalid redirect")
 }
@@ -348,6 +364,7 @@ var extCommParserMap = map[extCommType]func([]string) ([]bgp.ExtendedCommunityIn
 	ctColor:          colorParser,
 	ctLb:             lbParser,
 	ctMup:            mupParser,
+	ctRedirectNH:     redirectParser,
 }
 
 func parseExtendedCommunities(args []string) ([]bgp.ExtendedCommunityInterface, error) {
@@ -2059,6 +2076,7 @@ usage: %s rib -a %%s %s%%s match <MATCH> then <THEN>%%s%%s%%s
                %s |
                %s <RATE> [as <AS>] |
                %s <RT> |
+               %s <IPV4Address> |
                %s <DEC_NUM> |
                %s { sample | terminal | sample-terminal } }...
     <RT> : xxx:yyy, xxx.xxx.xxx.xxx:yyy, xxxx::xxxx:yyy, xxx.xxx:yyy`,
@@ -2074,6 +2092,7 @@ usage: %s rib -a %%s %s%%s match <MATCH> then <THEN>%%s%%s%%s
 			extCommNameMap[ctDiscard],
 			extCommNameMap[ctRate],
 			extCommNameMap[ctRedirect],
+			extCommNameMap[ctRedirectNH],
 			extCommNameMap[ctMark],
 			extCommNameMap[ctAction],
 		)

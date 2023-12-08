@@ -537,6 +537,11 @@ message RedirectFourOctetAsSpecificExtended {
   uint32 local_admin = 2;
 }
 
+message RedirectToIPv4NextHopAction {
+  string address = 1;
+  bool redirect_copy = 2;
+}
+
 message TrafficRemarkExtended { uint32 dscp = 1; }
 
 message MUPExtended {

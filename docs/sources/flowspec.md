@@ -71,6 +71,7 @@ $ gobgp global rib -a {ipv4-flowspec|ipv6-flowspec} add match <MATCH> then <THEN
                discard |
                rate-limit <RATE> [as <AS>] |
                redirect <RT> |
+               redirect-to-nexthop-ietf <IPV4Address> |
                mark <DEC_NUM> |
                action { sample | terminal | sample-terminal } }...
     <RT> : xxx:yyy, xxx.xxx.xxx.xxx:yyy, xxxx::xxxx:yyy, xxx.xxx:yyy
